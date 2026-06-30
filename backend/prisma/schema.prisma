@@ -112,6 +112,7 @@ model License {
   expiresAt    DateTime?
   maxDevices   Int           @default(1)
   note         String?
+  data         Json?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

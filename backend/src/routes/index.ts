@@ -6,6 +6,7 @@ import productRoutes from './productRoutes';
 import transactionRoutes from './transactionRoutes';
 import analyticsRoutes from './analyticsRoutes';
 import settingsRoutes from './settingsRoutes';
+import { LicenseController } from '../controllers/licenseController';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use('/products', productRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/settings', settingsRoutes);
+router.post('/app/license', (req, res) => LicenseController.checkLicenseForApp(req as any, res));
 
 router.get('/health', (_req, res) => {
   res.json({

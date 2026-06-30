@@ -55,15 +55,25 @@ export class LicenseService {
       expiresAt?: Date;
       maxDevices?: number;
       note?: string;
+      customKey?: string;
+      customData?: Record<string, unknown>;
     },
     actorId: string
   ): Promise<Record<string, unknown>> {
     const product = await prisma.product.findUnique({ where: { id: data.productId } });
     if (!product) throw new Error('Product not found');
 
+    let key = data.customKey?.trim();
+    if (key) {
+      const existing = await prisma.license.findUnique({ where: { key } });
+      if (existing) throw new Error('Custom license key already exists, choose a different one');
+    } else {
+      key = generateLicenseKey();
+    }
+
     const license = await prisma.license.create({
       data: {
-        key: generateLicenseKey(),
+        key,
         productId: data.productId,
         userId: data.userId,
         type: data.type,
@@ -71,6 +81,7 @@ export class LicenseService {
         expiresAt: data.type === LicenseType.PERMANENT ? null : data.expiresAt,
         maxDevices: data.maxDevices || 1,
         note: data.note,
+        data: data.customData as object | undefined,
       },
       include: {
         user: { select: { id: true, username: true, email: true } },
@@ -88,6 +99,35 @@ export class LicenseService {
     });
 
     return license as unknown as Record<string, unknown>;
+  }
+
+  static async resetHwid(id: string, actorId: string): Promise<Record<string, unknown>> {
+    const license = await prisma.license.findUnique({ where: { id } });
+    if (!license) throw new Error('License not found');
+
+    await prisma.licenseDevice.deleteMany({ where: { licenseId: id } });
+
+    await prisma.log.create({
+      data: { userId: actorId, action: LogAction.LICENSE_UPDATE, success: true, details: { licenseId: id, action: 'hwid_reset' } },
+    });
+
+    return { message: 'All devices unlinked from this license' };
+  }
+
+  static async setCustomData(id: string, customData: Record<string, unknown>, actorId: string): Promise<Record<string, unknown>> {
+    const license = await prisma.license.findUnique({ where: { id } });
+    if (!license) throw new Error('License not found');
+
+    const updated = await prisma.license.update({
+      where: { id },
+      data: { data: customData as object },
+    });
+
+    await prisma.log.create({
+      data: { userId: actorId, action: LogAction.LICENSE_UPDATE, success: true, details: { licenseId: id, action: 'custom_data_update' } },
+    });
+
+    return updated as unknown as Record<string, unknown>;
   }
 
   static async bulkCreateLicenses(

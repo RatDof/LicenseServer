@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { LicenseService } from '../services/licenseService';
+import { AppService } from '../services/appService';
 import { AuthenticatedRequest } from '../types';
 
 export class LicenseController {
@@ -23,13 +24,22 @@ export class LicenseController {
 
   static async createLicense(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { productId, userId, type, expiresAt, maxDevices, note } = req.body;
+      const { productId, userId, type, expiresAt, maxDevices, note, customKey, customData } = req.body;
       if (!productId || !type) {
         res.status(400).json({ success: false, error: 'productId and type are required' });
         return;
       }
       const license = await LicenseService.createLicense(
-        { productId, userId, type, expiresAt: expiresAt ? new Date(expiresAt) : undefined, maxDevices, note },
+        {
+          productId,
+          userId,
+          type,
+          expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+          maxDevices,
+          note,
+          customKey,
+          customData,
+        },
         req.user!.userId
       );
       res.status(201).json({ success: true, message: 'License created', data: license });
@@ -86,6 +96,44 @@ export class LicenseController {
     try {
       const license = await LicenseService.resumeLicense(req.params.id, req.user!.userId);
       res.json({ success: true, message: 'License resumed', data: license });
+    } catch (err) {
+      res.status(400).json({ success: false, error: (err as Error).message });
+    }
+  }
+
+  static async resetHwid(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const result = await LicenseService.resetHwid(req.params.id, req.user!.userId);
+      res.json({ success: true, message: 'HWID reset successfully', data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: (err as Error).message });
+    }
+  }
+
+  static async setCustomData(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { data } = req.body;
+      if (!data || typeof data !== 'object') {
+        res.status(400).json({ success: false, error: 'data object is required' });
+        return;
+      }
+      const license = await LicenseService.setCustomData(req.params.id, data, req.user!.userId);
+      res.json({ success: true, message: 'Custom data updated', data: license });
+    } catch (err) {
+      res.status(400).json({ success: false, error: (err as Error).message });
+    }
+  }
+
+  static async checkLicenseForApp(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { key, deviceId } = req.body;
+      if (!key || !deviceId) {
+        res.status(400).json({ success: false, error: 'key and deviceId are required' });
+        return;
+      }
+      const ip = req.header('x-forwarded-for')?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+      const result = await AppService.checkLicenseForApp(key, deviceId, ip);
+      res.json(result);
     } catch (err) {
       res.status(400).json({ success: false, error: (err as Error).message });
     }
