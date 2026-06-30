@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
+import React from 'react';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'LicenseServer - License Management Platform',
@@ -16,8 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="orb orb-2" />
         <div className="orb orb-3" />
         <div className="relative z-10">
-          {children}
-        </div>
+  <Providers>
+    {children}
+  </Providers>
+</div>
         <Toaster
           position="top-right"
           toastOptions={{
